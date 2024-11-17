@@ -1,0 +1,17 @@
+
+<svg viewBox="0 0 57 80" width="30px" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <defs>
+    <polyline id="h-seg" points="11 0, 37 0, 42 5, 37 10, 11 10, 6 5"></polyline>
+    <polyline id="v-seg" points="0 11, 5 6, 10 11, 10 34, 5 39, 0 39"></polyline>
+  </defs>
+  <g>
+    <use xlink:href="#h-seg" x="0" y="0"  fill="red"></use>
+    <use xlink:href="#v-seg" x="-48" y="0" transform="scale(-1,1)" fill="red"></use>
+    <use xlink:href="#v-seg" x="-48" y="-80" transform="scale(-1,-1)" fill="red"></use>
+    <use xlink:href="#h-seg" x="0" y="70"  fill="red"></use>
+    <use xlink:href="#v-seg" x="0" y="-80" transform="scale(1,-1)" fill="transparent"></use>
+    <use xlink:href="#v-seg" x="0" y="0"  fill="transparent"></use>
+    <use xlink:href="#h-seg" x="0" y="35"  fill="red"></use>
+    <circle cx="52" cy="75" r="5" fill="transparent"></circle>
+  </g>
+</svg>
