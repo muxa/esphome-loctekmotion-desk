@@ -207,12 +207,14 @@ async def new_uart_button(config, config_name, *args):
     cv.maybe_simple_value(
         {
             cv.GenerateID(): cv.use_id(LoctekMotionComponent),
-            cv.Required(CONF_DURATION): cv.int_range(1, 99),
+            cv.Required(CONF_DURATION): cv.templatable(cv.int_range(1, 99)),
         },
         key=CONF_DURATION,
     ),    
 )
-def timer_set_to_code(config, action_id, template_arg, args):
-    var = cg.new_Pvariable(action_id, template_arg, config[CONF_DURATION])
-    yield cg.register_parented(var, config[CONF_ID])
-    yield var
+async def timer_set_to_code(config, action_id, template_arg, args):
+    var = cg.new_Pvariable(action_id, template_arg)
+    await cg.register_parented(var, config[CONF_ID])
+    duration = await cg.templatable(config[CONF_DURATION], args, int)
+    cg.add(var.set_duration(duration))
+    return var

@@ -26,15 +26,9 @@ namespace esphome
     class LoctekMotionSetTimerAction : public Action<Ts...>, public Parented<LoctekMotionComponent>
     {
     public:
-      LoctekMotionSetTimerAction(uint8_t duration)
-      {
-        this->duration_ = duration;
-      }
+      TEMPLATABLE_VALUE(uint8_t, duration)
 
-      void play(Ts... x) override { this->parent_->set_timer_duration(this->duration_); }
-
-    protected:
-      uint8_t duration_;
+      void play(Ts... x) override { this->parent_->set_timer_duration(this->duration_.value(x...)); }
     };
   } // namespace loctekmotion_desk
 } // namespace esphome
