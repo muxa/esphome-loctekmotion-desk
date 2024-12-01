@@ -112,6 +112,12 @@ Supports setting/changing the timer via automation, e.g:
 loctekmotion_desk.timer_set: 15
 ```
 
+See a [complete example configuration](./example.yaml) with which to setup these controls:
+
+| Controls                                | Sensors & Config                              | Diagnostics                                 |
+| --------------------------------------- | --------------------------------------------- | ------------------------------------------- |
+| ![Controls](./docs/images/controls.png) | ![Controls](./docs/images/sensors+config.png) | ![Controls](./docs/images/diagrnostics.png) |
+
 ## State Machine
 
 The state machine is used to reliably detect what the desk is doing as well as control it.

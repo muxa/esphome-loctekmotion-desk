@@ -1,0 +1,281 @@
+substitutions:
+  device_name: Office Desk
+  name: office-desk
+  min_height: "75" # cm, used to detect sitting position. absolute minimum: 72
+  max_height: "117" # cm, used to detect standing position. absolute maximum: 135
+
+external_components:
+  - source: github://muxa/esphome-loctekmotion-desk
+    components: [ loctekmotion_desk ]
+
+esp8266:
+  board: d1_mini
+  restore_from_flash: true
+
+esphome:
+  name: ${name}
+  friendly_name: ${device_name}
+  comment: Used to control your ${device_name} Flexispot standing desk via Home Assistant.
+
+  # Wake Desk by sending the "M" command
+  # This will pull the current height after boot
+  on_boot:
+    priority: -10
+    then:
+      - button.press: button_m
+
+logger:
+  level: DEBUG
+  baud_rate: 0 # disable logging over uart, since we use UART for comms
+  logs:
+    sensor: INFO
+
+api:
+
+ota:
+  platform: esphome
+
+wifi:
+
+uart:
+  - id: desk_uart
+    baud_rate: 9600
+    tx_pin: TX
+    rx_pin: RX
+
+script:
+  - id: change_timer_duration
+    then:
+      - delay: 0.1s # wait for the sitting and standig sensors to update
+      - if:
+          condition:
+            and:
+              - binary_sensor.is_on: timer_active
+              - binary_sensor.is_on: is_sitting
+          then:
+            - loctekmotion_desk.timer_set: !lambda |-
+                return id(number_sitting_duration).state;
+      - if:
+          condition:
+            and:
+              - binary_sensor.is_on: timer_active
+              - binary_sensor.is_on: is_standing
+          then:
+            - loctekmotion_desk.timer_set: !lambda |-
+                return id(number_standing_duration).state;
+
+  - id: turn_timer_off
+    mode: single
+    then:
+      # Simulate pressing and holding the Timer button ("A")
+      - while:
+          condition:
+            binary_sensor.is_on: timer_active # wait for the Timer to be off
+          then:
+            - uart.write: [0x9b, 0x06, 0x02, 0x40, 0x00, 0xAC, 0x90, 0x9d]
+            - delay: 108ms
+
+loctekmotion_desk:
+    id: desk
+    connected:
+      name: "Connected"
+      disabled_by_default: true
+    height:
+      name: "Height"
+      id: height
+      filters:
+        - heartbeat: 1s
+        - delta: 0.1
+    moving:
+      name: "Moving"
+      id: moving
+      on_release:
+        - script.execute: change_timer_duration # TODO: don't set on startup
+    timer_active:
+      name: "Timer Active"
+      id: timer_active
+    timer:
+      name: "Timer"
+      accuracy_decimals: 0
+      icon: "mdi:timer"
+    control_status:
+      name: "Control Status"
+      disabled_by_default: true
+
+    up_button:
+      name: "Up"
+      id: button_up
+      icon: mdi:arrow-up-box
+      data: [0x9b, 0x06, 0x02, 0x01, 0x00, 0xfc, 0xa0, 0x9d]
+
+    down_button:
+      name: "Down"
+      id: button_down
+      icon: mdi:arrow-down-box
+      data: [0x9b, 0x06, 0x02, 0x02, 0x00, 0x0c, 0xa0, 0x9d]
+
+    preset1_button:
+      id: preset1
+      name: "Preset 1"
+      icon: mdi:numeric-1-box
+      data: [0x9b, 0x06, 0x02, 0x04, 0x00, 0xac, 0xa3, 0x9d]
+
+    preset2_button:
+      id: preset2
+      name: "Preset 2"
+      icon: mdi:numeric-2-box
+      data: [0x9b, 0x06, 0x02, 0x08, 0x00, 0xac, 0xa6, 0x9d]
+
+    preset3_button:
+      id: preset3
+      name: "Preset 3"
+      icon:  mdi:numeric-3-box
+      data: [0x9b, 0x06, 0x02, 0x10, 0x00, 0xac, 0xac, 0x9d]
+
+    memory_button:
+      name: "Memory"
+      id: button_m
+      internal: false
+      icon: mdi:alpha-m-box
+      data: [0x9b, 0x06, 0x02, 0x20, 0x00, 0xac, 0xb8, 0x9d]
+
+    timer_button:
+      name: "Timer"
+      id: button_timer
+      icon: mdi:alpha-a-box
+      data: [0x9b, 0x06, 0x02, 0x40, 0x00, 0xAC, 0x90, 0x9d]
+
+    on_timer_done:
+      - if:
+          condition:
+            switch.is_on: automatic
+          then:
+            - if:
+                condition: 
+                  binary_sensor.is_on: is_sitting
+                then: # move up
+                  - while:
+                      condition:
+                        binary_sensor.is_off: moving # sometimes the preset button press is not recognised, and the desk remains stationary. retry until starts moving
+                      then:
+                        - button.press: preset2
+                        - delay: 1s
+                else: # move down
+                  - while:
+                      condition:
+                        binary_sensor.is_off: moving # sometimes the preset button press is not recognised, and the desk remains stationary. retry until starts moving
+                      then:
+                        - button.press: preset1
+                        - delay: 1s
+
+switch:
+  - platform: template
+    id: automatic
+    name: "Move on Timer"
+    icon: "mdi:arrow-up-down-bold"
+    optimistic: true
+    restore_mode: RESTORE_DEFAULT_OFF
+
+  - platform: template
+    name: "Timer"
+    id: switch_timer
+    icon: "mdi:timer"
+    lambda: |-
+      // show switch as OFF when in the process of turning off
+      if (id(turn_timer_off).is_running())
+        return false;
+      if (id(timer_active).state)
+        return true;
+      // show switch as ON when timer is starting
+      switch (id(desk).current_state()) {
+        case DC_STATE_TIMER_STARTING:
+        case DC_STATE_TIMER_ON:
+        case DC_STATE_TIMER_CHANGE:
+        case DC_STATE_TIMER_DONE:
+          return true;
+        default:
+          return false;
+      }
+    turn_on_action:
+      - button.press: button_timer
+    turn_off_action:
+      - script.execute: turn_timer_off
+
+button:
+  - platform: template
+    id: timer15
+    name: "Timer 15m"
+    icon: "mdi:timer"
+    on_press:
+      - loctekmotion_desk.timer_set: 15
+
+  - platform: template
+    id: timer30
+    name: "Timer 30m"
+    icon: "mdi:timer"
+    on_press:
+      - loctekmotion_desk.timer_set: 30
+
+binary_sensor:
+  - platform: analog_threshold
+    name: "Sitting"
+    id: is_sitting
+    icon: mdi:chair-rolling
+    sensor_id: height
+    threshold: 75
+    filters:
+      - invert:
+
+  - platform: analog_threshold
+    name: "Standing"
+    id: is_standing
+    icon: mdi:human-handsup
+    sensor_id: height
+    threshold: 118
+
+number:
+  - platform: template
+    name: "Standing Duration"
+    id: number_standing_duration
+    optimistic: true
+    restore_value: true
+    initial_value: 10
+    min_value: 1
+    max_value: 99
+    step: 1
+    entity_category: "config"
+    icon: "mdi:timer"
+    mode: "box"
+    unit_of_measurement: "min"
+
+  - platform: template
+    name: "Sitting Duration"
+    id: number_sitting_duration
+    optimistic: true
+    restore_value: true
+    initial_value: 50
+    min_value: 1
+    max_value: 99
+    step: 1
+    entity_category: "config"
+    icon: "mdi:timer"
+    mode: "box"
+    unit_of_measurement: "min"
+
+cover:
+  - platform: template
+    name: "Height Control"
+    id: height_control
+    icon: "mdi:arrow-up-down-bold"
+    optimistic: true
+    assumed_state: true
+    open_action:
+      - button.press: preset2
+    close_action:
+      - button.press: preset1
+    stop_action:
+      - if:
+          condition: 
+            binary_sensor.is_on: moving
+          then:
+            - button.press: preset1
