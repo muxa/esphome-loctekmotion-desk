@@ -73,7 +73,7 @@ void LoctekMotionComponent::loop() {
             ||  display.segment3 != frame.data[2];
 
           // 9B:04:14:7F:03:9D when alarm beeped
-          // 9B:04:81:10:C3:9D 15 seconds after alarm beeped
+          // 9B:04:81:10:C3:9D 15 seconds after alarm beeped. also sometimes sent while the alarm timer is on e.g 7 minutes after alarm timer started
 
           if (!display_changed) {
             auto display_state = get_display_state(&display);
@@ -96,6 +96,8 @@ void LoctekMotionComponent::loop() {
 
             if (display_state == SD_STATE_UNKNOWN) {
               log_data_frame(&frame);
+            } else {
+              // log_data_frame(&frame);
             }
           }
 

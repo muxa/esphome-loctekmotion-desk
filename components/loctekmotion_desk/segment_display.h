@@ -19,9 +19,9 @@ struct DataFrame {
     uint8_t raw[DATA_FRAME_MAX_SIZE];
     struct {
       uint8_t header;
-      uint8_t data_length;
+      uint8_t data_length; // includes length, type, payload and checkum
       uint8_t type;
-      uint8_t data[DATA_MAX_SIZE];
+      uint8_t data[DATA_MAX_SIZE]; // includes payload and checksum
     };
   };
 
@@ -33,7 +33,7 @@ struct DataFrame {
     if (!validate_bounds())
       return 0;
 
-    return data_length + 2; // data lengths excludes header and footer
+    return data_length + 2; // data lengths excludes header and footer, and includes length, type, payload and CRC
   }
 
   /**
@@ -59,17 +59,34 @@ struct DataFrame {
     if (!validate_bounds())
       return 0;
 
-    return 0; // TODO: get actual CRC
+    uint8_t crc_index = 1 + data_length - 2; // exclude header, footer and crc
+    return ((uint16_t)raw[crc_index]<<8) + raw[crc_index+1];
   }
 
   /**
    * Calculates CRC on the current data by creating an XOR sum
    */
-  uint8_t calculate_crc() const {
+  uint16_t calculate_crc() const {
     if (!validate_bounds())
       return 0;
 
-    return 0; // TODO: calculate actual CRC
+    // based on https://github.com/LacobusVentura/MODBUS-CRC16/blob/master/MODBUS_CRC16.c
+    uint16_t crc = 0xFFFF;
+    uint8_t len = size() - 3; // exclude footer and crc
+    for (uint8_t pos = 1; pos < len; pos++)
+    {
+      crc ^= raw[pos];
+
+      for (uint16_t i = 0; i < 8; i++) {
+          if (crc & 1) {
+              crc >>= 1;
+              crc ^= 0xA001;
+          } else {
+              crc >>= 1;
+          }
+      }
+    }
+    return crc;
   }
 
   void reset() {
@@ -107,10 +124,14 @@ struct DataFrameReader {
         ESP_LOGW("loctekmotion_desk.segment_display", "Unexpected last byte: 0x%02x", byte);
         return false;
       }
-      crc_valid = frame.validate_crc();
+      // ESP_LOGD("loctekmotion_desk.segment_display", "Received CRC: 0x%04x, Calculated CRC: 0x%04x", frame.crc(), frame.calculate_crc());
+      crc_valid = frame.validate_crc();      
       data_index_ = 0;  // prepare for next frame
       complete = true;
-      return true;
+      if (!crc_valid) {
+        ESP_LOGW("loctekmotion_desk.segment_display", "CRC not matched!");
+      }
+      return crc_valid;
     } else {
       data_index_++;
       if (data_index_ == DATA_FRAME_MAX_SIZE) {
