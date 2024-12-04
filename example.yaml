@@ -159,14 +159,14 @@ loctekmotion_desk:
                         binary_sensor.is_off: moving # sometimes the preset button press is not recognised, and the desk remains stationary. retry until starts moving
                       then:
                         - button.press: preset2
-                        - delay: 1s
+                        - delay: 2s
                 else: # move down
                   - while:
                       condition:
                         binary_sensor.is_off: moving # sometimes the preset button press is not recognised, and the desk remains stationary. retry until starts moving
                       then:
                         - button.press: preset1
-                        - delay: 1s
+                        - delay: 2s
 
 switch:
   - platform: template
