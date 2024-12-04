@@ -118,6 +118,19 @@ See a [complete example configuration](./example.yaml) with which to setup these
 | --------------------------------------- | --------------------------------------------- | ------------------------------------------- |
 | ![Controls](./docs/images/controls.png) | ![Controls](./docs/images/sensors+config.png) | ![Controls](./docs/images/diagrnostics.png) |
 
+Features:
+
+- `Move on Timer` switch to control whether the desk should change position when the timer elapses
+- `Timer` switch to start or stop the alarm timer
+- `Moving` binary sensor to detect if the desk is currently moving
+- `Sitting` and `Standing` binary sensors to detect if the desk is low (sitting) or high (standing)
+- `Timer` sensor shows how much time in remaining before the alarm
+- `Sitting Duration` allows configuring number of minutes for the timer to be set in the low desk position
+- `Standing Duration` allows configuring number of minutes for the timer to be set in the high desk position
+- `Connected` binary sensor show is the desk controller data is being received
+- `Control Status` sensor shows the current state of the desk controller state machine (see State Machine section below)
+
+
 ## State Machine
 
 The state machine is used to reliably detect what the desk is doing as well as control it.
